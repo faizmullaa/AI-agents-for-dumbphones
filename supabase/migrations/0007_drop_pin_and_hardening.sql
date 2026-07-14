@@ -18,8 +18,18 @@ create policy "consents insert own" on public.consents
 create policy "consents select own" on public.consents
   for select to authenticated using ((select auth.uid()) = user_id);
 
--- 3. pg_net : la primitive HTTP est une amorce SSRF côté base. Elle n'est pas
---    exposée via PostgREST aujourd'hui, mais on retire l'accès aux rôles Data API
---    par défense en profondeur (le scheduler tourne en postgres/superuser).
-revoke usage on schema net from anon, authenticated;
-revoke execute on all functions in schema net from anon, authenticated;
+-- 3. pg_net : rien ici, et c'est délibéré.
+--    Cette migration a d'abord tenté « revoke usage on schema net » et « revoke
+--    execute on all functions in schema net » pour anon/authenticated. Les deux
+--    ordres sont passés sans rien changer, et ne pouvaient pas en changer :
+--    le schéma net appartient à supabase_admin, qui a accordé tous ces droits,
+--    alors que les migrations tournent en postgres, non membre de supabase_admin.
+--    Un REVOKE ne retire que les droits accordés par le rôle qui le lance ; d'où
+--    les « no privileges could be revoked » au push. Vérifié le 2026-07-15 :
+--    has_function_privilege('anon','net.http_post',...) répondait toujours true
+--    après application.
+--    Ce qui protège réellement : net n'est pas exposé via PostgREST, et aucune
+--    fonction de public n'appelle net.http*.
+--    Ne pas réessayer depuis une migration. Un « revoke ... from public » qui
+--    aboutirait couperait les deux crons (reminders, outbound) : ils appellent
+--    net.http_get en postgres, qui ne tient ce droit que via public.
