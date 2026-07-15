@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for wanting to build this. The goal is simple: let people leave the smartphone
-without losing the useful stuff, by calling a number instead of opening an app — and let
+without losing the useful stuff, by calling a number instead of opening an app - and let
 the community add the skills and languages that make that real.
 
 This project is **early and looking for founding co-builders.** The two best first
