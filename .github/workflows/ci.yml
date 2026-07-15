@@ -43,3 +43,16 @@ jobs:
         working-directory: runtime
       - run: python -m unittest discover -s tests
         working-directory: runtime
+
+  scripts:
+    name: scripts — tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      # Le bot /claim tourne avec issues:write sur des commentaires publics.
+      # Sa logique est testée ici ; le workflow lui-même ne peut pas l'être
+      # avant d'être sur main.
+      - run: node --test .github/scripts/*.test.js

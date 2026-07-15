@@ -1,0 +1,66 @@
+name: Claim
+
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    # Tous les jours. Le balayage est inerte tant que la variable de dépôt
+    # CLAIM_SWEEP_LIVE ne vaut pas 'true'.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deux /claim simultanés sur la même issue ne doivent pas s'assigner l'un
+# l'autre. On sérialise par issue.
+concurrency:
+  group: claim-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  command:
+    name: claim — command
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = require('./.github/scripts/claim-command.js')
+            await run({ github, context, core })
+
+  sweep:
+    name: claim — sweep
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Le groupe au niveau du workflow retombe sur run_id quand il n'y a pas
+    # d'issue, donc un dispatch manuel pendant le passage nocturne ne se
+    # sérialiserait contre rien : deux balayages liraient avant que l'un écrive
+    # et la même issue serait relancée deux fois. Groupe fixe ici.
+    concurrency:
+      group: claim-sweep
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CLAIM_SWEEP_LIVE: ${{ vars.CLAIM_SWEEP_LIVE }}
+        with:
+          script: |
+            const run = require('./.github/scripts/claim-sweep.js')
+            await run({ github, context, core })
